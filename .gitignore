@@ -1,0 +1,20 @@
+# Vector store data
+lancedb/
+
+# Local config
+lex_cases.toml
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.py[cod]
+*.egg-info/
+.env
+
+# Tools
+.pytest_cache/
+.venv/
+venv/
+dist/
+build/
