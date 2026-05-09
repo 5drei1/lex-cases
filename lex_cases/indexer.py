@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from typing import Iterator
 
 import pyarrow as pa
+from tqdm import tqdm
 
 from .providers.base import CaseProvider, RawCase
 from .providers.rechtsprechung_im_internet import RechtsprechungImInternetProvider
@@ -30,9 +32,13 @@ _CASE_SCHEMA = pa.schema([
 _EMBED_BATCH_SIZE = 16  # mirrors lex-retriever Mistral batching fix d07b0c6
 
 
-def _get_db():
+def make_case_id(court: str, az: str, chunk_idx: int) -> str:
+    return hashlib.sha1(f"{court}|{az}|{chunk_idx}".encode()).hexdigest()
+
+
+def _get_db(db_path: str = "lancedb"):
     import lancedb
-    return lancedb.connect("lancedb")
+    return lancedb.connect(db_path)
 
 
 def _get_table(db):
@@ -65,11 +71,11 @@ def _existing_ids(table) -> set[str]:
 
 
 def _cases_to_rows(cases: Iterator[RawCase], existing: set[str]) -> list[dict]:
-    rows = []
+    rows: list[dict] = []
     pending_texts: list[str] = []
     pending_meta: list[dict] = []
 
-    def _flush():
+    def _flush() -> None:
         if not pending_texts:
             return
         vectors = _embed_texts(pending_texts)
@@ -78,7 +84,7 @@ def _cases_to_rows(cases: Iterator[RawCase], existing: set[str]) -> list[dict]:
         pending_texts.clear()
         pending_meta.clear()
 
-    for case in cases:
+    for case in tqdm(cases, desc="Indexing chunks", unit="chunk"):
         if case.id in existing:
             continue
         pending_texts.append(case.text)
@@ -100,9 +106,9 @@ def _cases_to_rows(cases: Iterator[RawCase], existing: set[str]) -> list[dict]:
     return rows
 
 
-def index_court(court: str) -> int:
+def index_court(court: str, db_path: str = "lancedb") -> int:
     """Download, embed, and index all decisions for one court. Returns rows added."""
-    db = _get_db()
+    db = _get_db(db_path)
     table = _get_table(db)
     existing = _existing_ids(table)
     provider = _get_provider()
@@ -120,18 +126,18 @@ def index_court(court: str) -> int:
     return len(rows)
 
 
-def index_all_courts() -> dict[str, int]:
+def index_all_courts(db_path: str = "lancedb") -> dict[str, int]:
     """Index all supported courts. Returns {court: rows_added}."""
     from .providers.rechtsprechung_im_internet import _COURT_CATALOG
     results = {}
     for court in _COURT_CATALOG:
-        results[court] = index_court(court)
+        results[court] = index_court(court, db_path)
     return results
 
 
-def index_status() -> dict[str, int]:
+def index_status(db_path: str = "lancedb") -> dict[str, int]:
     """Return count of indexed entries per court."""
-    db = _get_db()
+    db = _get_db(db_path)
     try:
         table = db.open_table(TABLE_NAME)
         df = table.to_pandas(columns=["court"])

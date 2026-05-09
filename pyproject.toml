@@ -20,6 +20,7 @@ dependencies = [
     "pyarrow>=15.0",
     "requests>=2.31",
     "tenacity>=8.0",
+    "tqdm>=4.0",
     "lex-retriever>=0.1",
 ]
 
@@ -41,7 +42,8 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+addopts = "-m 'not requires_db and not integration'"
 markers = [
-    "requires_db: marks tests that require a populated lancedb (skip with -m 'not requires_db')",
+    "requires_db: marks tests that require a populated lancedb",
     "integration: marks integration tests that call external services",
 ]
