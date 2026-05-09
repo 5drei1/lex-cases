@@ -1,0 +1,9 @@
+lancedb/
+__pycache__/
+.env
+*.pyc
+lex_cases.toml
+*.egg-info/
+dist/
+build/
+.venv/
