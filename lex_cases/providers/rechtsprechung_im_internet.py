@@ -8,7 +8,7 @@ import xml.etree.ElementTree as ET
 import zipfile
 
 import requests
-from tenacity import retry, stop_after_attempt, wait_exponential
+from tenacity import retry, retry_if_not_exception_type, stop_after_attempt, wait_exponential
 
 from .base import CaseProvider
 
@@ -84,7 +84,8 @@ def _parse_xml_entry(root: ET.Element, court_code: str) -> list[dict]:
 class RechtsprechungImInternetProvider(CaseProvider):
     """Downloads and parses XML-ZIP archives from rechtsprechung-im-internet.de."""
 
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10),
+           retry=retry_if_not_exception_type(ValueError))
     def fetch_court(self, court: str) -> list[dict]:
         """Download XML-ZIP for a court and return list of case chunk dicts."""
         if court not in _COURT_CATALOG:
